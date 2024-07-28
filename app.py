@@ -1,13 +1,11 @@
 from flask import Flask, request, render_template, jsonify
 import openai
-from PIL import Image
-import os
 import base64
 import requests
 from io import BytesIO
+from PIL import Image
 
 app = Flask(__name__, template_folder='templates', static_folder='static')
-    
 
 # OpenAI API anahtarı
 openai.api_key = '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'
@@ -28,17 +26,17 @@ def upload_image():
     if file.filename == '':
         return jsonify({"error": "Dosya seçilmedi"})
     if file:
-        filename = file.filename
-        file_path = os.path.join('uploads', filename)
-        file.save(file_path)
-        result = analyze_image(file_path)
+        # Dosyayı bellekte işleyin
+        img = Image.open(file.stream)
+        result = analyze_image(img)
         gtip_code = get_gtip_code(result)
         return jsonify({"description": result, "gtip_code": gtip_code})
 
-def analyze_image(image_path):
+def analyze_image(img):
     # Görüntüyü base64 formatına dönüştürme
-    with open(image_path, "rb") as image_file:
-        base64_image = base64.b64encode(image_file.read()).decode('utf-8')
+    buffered = BytesIO()
+    img.save(buffered, format="JPEG")
+    base64_image = base64.b64encode(buffered.getvalue()).decode('utf-8')
 
     headers = {
         "Content-Type": "application/json",
@@ -133,9 +131,5 @@ def chat():
 
     return jsonify({"message": message_content.value})
 
-if not os.path.exists('uploads'):
-    os.makedirs('uploads')
-
 if __name__ == "__main__":
     app.run(debug=True)
-
