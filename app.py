@@ -1,13 +1,14 @@
 from flask import Flask, request, render_template, jsonify
 import openai
-import base64
-from io import BytesIO
 from PIL import Image
 import os
+import base64
+import requests
+from io import BytesIO
 
 app = Flask(__name__, template_folder='templates', static_folder='static')
 
-# GitHub Secrets'dan OpenAI API anahtarını al
+# OpenAI API anahtarını çevre değişkeninden al
 openai.api_key = os.getenv('OPENAI_API_KEY')
 
 # Vektör mağazası ve asistan ID'leri
@@ -21,12 +22,11 @@ def home():
 @app.route('/upload', methods=['POST'])
 def upload_image():
     if 'file' not in request.files:
-        return jsonify({"error": "Dosya bulunamadı"}), 400
+        return jsonify({"error": "Dosya bulunamadı"})
     file = request.files['file']
     if file.filename == '':
-        return jsonify({"error": "Dosya seçilmedi"}), 400
+        return jsonify({"error": "Dosya seçilmedi"})
     if file:
-        # Dosyayı bellekte işleyin
         img = Image.open(file.stream)
         result = analyze_image(img)
         gtip_code = get_gtip_code(result)
@@ -44,12 +44,22 @@ def analyze_image(img):
     }
 
     payload = {
-        "model": "gpt-4",
+        "model": "gpt-4o",
         "messages": [
             {
                 "role": "user",
-                "content": "Bu resimde ne var?",
-                "image_url": f"data:image/jpeg;base64,{base64_image}"
+                "content": [
+                    {
+                        "type": "text",
+                        "text": "Bu resimde ne var?"
+                    },
+                    {
+                        "type": "image_url",
+                        "image_url": {
+                            "url": f"data:image/jpeg;base64,{base64_image}"
+                        }
+                    }
+                ]
             }
         ],
         "max_tokens": 150
@@ -58,15 +68,8 @@ def analyze_image(img):
     response = requests.post("https://api.openai.com/v1/chat/completions", headers=headers, json=payload)
 
     if response.status_code == 200:
-        try:
-            data = response.json()
-            if 'choices' in data and len(data['choices']) > 0:
-                value = data['choices'][0].get('message', {}).get('content', 'İçerik bulunamadı')
-                return value
-            else:
-                return "Yanıt beklenen formatta değil veya içerik bulunamadı."
-        except Exception as e:
-            return f"JSON ayrıştırma hatası: {str(e)}"
+        description = response.json()['choices'][0]['message']['content']
+        return description
     else:
         return f"Hata: {response.status_code}, {response.text}"
 
@@ -90,16 +93,10 @@ def get_gtip_code(description):
     response = requests.post("https://api.openai.com/v1/chat/completions", headers=headers, json=payload)
 
     if response.status_code == 200:
-        try:
-            data = response.json()
-            if 'choices' in data and len(data['choices']) > 0:
-                reply = data['choices'][0].get('message', {}).get('content', 'İçerik bulunamadı')
-                gtip_code = reply.split(":")[-1].strip()
-                return gtip_code
-            else:
-                return "Yanıt beklenen formatta değil veya içerik bulunamadı."
-        except Exception as e:
-            return f"JSON ayrıştırma hatası: {str(e)}"
+        # Sadece GTIP kodunu döndür
+        reply = response.json()['choices'][0]['message']['content']
+        gtip_code = reply.split(":")[-1].strip()
+        return gtip_code
     else:
         return f"Hata: {response.status_code}, {response.text}"
 
@@ -109,39 +106,30 @@ def chat():
     if not user_input:
         return jsonify({"error": "Girdi sağlanmadı"}), 400
 
-    try:
-        # Vektör Mağazası ile Asistanı Güncelle
-        assistant = openai.beta.assistants.update(
-            assistant_id=assistant_id,
-            tool_resources={"file_search": {"vector_store_ids": [vector_store_id]}},
-        )
+    # Vektör Mağazası ile Asistanı Güncelle
+    assistant = openai.beta.assistants.update(
+        assistant_id=assistant_id,
+        tool_resources={"file_search": {"vector_store_ids": [vector_store_id]}},
+    )
 
-        # Bir İletişim Dizisi Oluştur
-        thread = openai.beta.threads.create()
-        print(f"Your thread id is - {thread.id}\n\n")
+    # Bir İletişim Dizisi Oluştur
+    thread = openai.beta.threads.create()
+    print(f"Your thread id is - {thread.id}\n\n")
 
-        message = openai.beta.threads.messages.create(
-            thread_id=thread.id,
-            role="user",
-            content=user_input,
-        )
+    message = openai.beta.threads.messages.create(
+        thread_id=thread.id,
+        role="user",
+        content=user_input,
+    )
 
-        run = openai.beta.threads.runs.create_and_poll(
-            thread_id=thread.id, assistant_id=assistant.id
-        )
+    run = openai.beta.threads.runs.create_and_poll(
+        thread_id=thread.id, assistant_id=assistant.id
+    )
 
-        messages = list(openai.beta.threads.messages.list(thread_id=thread.id, run_id=run.id))
-        print("Messages:", messages)
+    messages = list(openai.beta.threads.messages.list(thread_id=thread.id, run_id=run.id))
+    message_content = messages[0].content[0].text
 
-        if not messages or 'content' not in messages[0] or not messages[0]['content']:
-            return jsonify({"error": "Yanıt alınamadı veya yanıt beklenen formatta değil."}), 400
-
-        # Sadece value alanını döndürüyoruz
-        message_content = messages[0]['content'][0]['text']['value']
-        return jsonify({"message": message_content})
-    
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    return jsonify({"message": message_content})
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run(debug=True, port=5000)
