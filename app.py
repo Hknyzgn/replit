@@ -68,6 +68,7 @@ def analyze_image(img):
     response = requests.post("https://api.openai.com/v1/chat/completions", headers=headers, json=payload)
 
     if response.status_code == 200:
+        print("OpenAI Yanıtı:", response.json())  # Yanıtı loglayın
         description = response.json().get('choices', [{}])[0].get('message', {}).get('content', 'No content found')
         return description
     else:
@@ -93,7 +94,7 @@ def get_gtip_code(description):
     response = requests.post("https://api.openai.com/v1/chat/completions", headers=headers, json=payload)
 
     if response.status_code == 200:
-        # Sadece GTIP kodunu döndür
+        print("OpenAI Yanıtı:", response.json())  # Yanıtı loglayın
         reply = response.json().get('choices', [{}])[0].get('message', {}).get('content', 'No content found')
         gtip_code = reply.split(":")[-1].strip()
         return gtip_code
@@ -128,6 +129,7 @@ def chat():
         )
 
         messages = list(openai.beta.threads.messages.list(thread_id=thread.id, run_id=run.id))
+        print("Messages:", messages)  # Mesajları loglayın
 
         if not messages or 'content' not in messages[0] or not messages[0]['content']:
             return jsonify({"error": "Yanıt alınamadı veya yanıt beklenen formatta değil."}), 400
