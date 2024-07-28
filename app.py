@@ -1,16 +1,14 @@
 from flask import Flask, request, render_template, jsonify
 import openai
+import base64
+from io import BytesIO
 from PIL import Image
 import os
-import base64
-import requests
-from io import BytesIO
 
 app = Flask(__name__, template_folder='templates', static_folder='static')
-    
 
-# OpenAI API anahtarı
-openai.api_key = 'sk-proj-brlgRioJzYDh4USOuHcxT3BlbkFJDxB1PmtYprZE0tKhbZzy'
+# OpenAI API anahtarınızı güvenli bir şekilde saklayın
+openai.api_key = os.getenv('OPENAI_API_KEY', 'sk-proj-xBJddqxbM0Dk0JTK9V68T3BlbkFJo02jpvi1AeUeAfwZmX9A')
 
 # Vektör mağazası ve asistan ID'leri
 vector_store_id = "vs_1N5yiB3FktibNA46NuqXrAVg"
@@ -23,22 +21,22 @@ def home():
 @app.route('/upload', methods=['POST'])
 def upload_image():
     if 'file' not in request.files:
-        return jsonify({"error": "Dosya bulunamadı"})
+        return jsonify({"error": "Dosya bulunamadı"}), 400
     file = request.files['file']
     if file.filename == '':
-        return jsonify({"error": "Dosya seçilmedi"})
+        return jsonify({"error": "Dosya seçilmedi"}), 400
     if file:
-        filename = file.filename
-        file_path = os.path.join('uploads', filename)
-        file.save(file_path)
-        result = analyze_image(file_path)
+        # Dosyayı bellekte işleyin
+        img = Image.open(file.stream)
+        result = analyze_image(img)
         gtip_code = get_gtip_code(result)
         return jsonify({"description": result, "gtip_code": gtip_code})
 
-def analyze_image(image_path):
+def analyze_image(img):
     # Görüntüyü base64 formatına dönüştürme
-    with open(image_path, "rb") as image_file:
-        base64_image = base64.b64encode(image_file.read()).decode('utf-8')
+    buffered = BytesIO()
+    img.save(buffered, format="JPEG")
+    base64_image = base64.b64encode(buffered.getvalue()).decode('utf-8')
 
     headers = {
         "Content-Type": "application/json",
@@ -46,22 +44,12 @@ def analyze_image(image_path):
     }
 
     payload = {
-        "model": "gpt-4o",
+        "model": "gpt-4",
         "messages": [
             {
                 "role": "user",
-                "content": [
-                    {
-                        "type": "text",
-                        "text": "Bu resimde ne var?"
-                    },
-                    {
-                        "type": "image_url",
-                        "image_url": {
-                            "url": f"data:image/jpeg;base64,{base64_image}"
-                        }
-                    }
-                ]
+                "content": "Bu resimde ne var?",
+                "image_url": f"data:image/jpeg;base64,{base64_image}"
             }
         ],
         "max_tokens": 150
@@ -70,8 +58,16 @@ def analyze_image(image_path):
     response = requests.post("https://api.openai.com/v1/chat/completions", headers=headers, json=payload)
 
     if response.status_code == 200:
-        description = response.json()['choices'][0]['message']['content']
-        return description
+        try:
+            data = response.json()
+            if 'choices' in data and len(data['choices']) > 0:
+                # Sadece value alanını alıyoruz
+                value = data['choices'][0]['message']['content']
+                return value
+            else:
+                return "Yanıt beklenen formatta değil veya içerik bulunamadı."
+        except Exception as e:
+            return f"JSON ayrıştırma hatası: {str(e)}"
     else:
         return f"Hata: {response.status_code}, {response.text}"
 
@@ -95,10 +91,16 @@ def get_gtip_code(description):
     response = requests.post("https://api.openai.com/v1/chat/completions", headers=headers, json=payload)
 
     if response.status_code == 200:
-        # Sadece GTIP kodunu döndür
-        reply = response.json()['choices'][0]['message']['content']
-        gtip_code = reply.split(":")[-1].strip()
-        return gtip_code
+        try:
+            data = response.json()
+            if 'choices' in data and len(data['choices']) > 0:
+                reply = data['choices'][0]['message']['content']
+                gtip_code = reply.split(":")[-1].strip()
+                return gtip_code
+            else:
+                return "Yanıt beklenen formatta değil veya içerik bulunamadı."
+        except Exception as e:
+            return f"JSON ayrıştırma hatası: {str(e)}"
     else:
         return f"Hata: {response.status_code}, {response.text}"
 
@@ -108,33 +110,39 @@ def chat():
     if not user_input:
         return jsonify({"error": "Girdi sağlanmadı"}), 400
 
-    # Vektör Mağazası ile Asistanı Güncelle
-    assistant = openai.beta.assistants.update(
-        assistant_id=assistant_id,
-        tool_resources={"file_search": {"vector_store_ids": [vector_store_id]}},
-    )
+    try:
+        # Vektör Mağazası ile Asistanı Güncelle
+        assistant = openai.beta.assistants.update(
+            assistant_id=assistant_id,
+            tool_resources={"file_search": {"vector_store_ids": [vector_store_id]}},
+        )
 
-    # Bir İletişim Dizisi Oluştur
-    thread = openai.beta.threads.create()
-    print(f"Your thread id is - {thread.id}\n\n")
+        # Bir İletişim Dizisi Oluştur
+        thread = openai.beta.threads.create()
+        print(f"Your thread id is - {thread.id}\n\n")
 
-    message = openai.beta.threads.messages.create(
-        thread_id=thread.id,
-        role="user",
-        content=user_input,
-    )
+        message = openai.beta.threads.messages.create(
+            thread_id=thread.id,
+            role="user",
+            content=user_input,
+        )
 
-    run = openai.beta.threads.runs.create_and_poll(
-        thread_id=thread.id, assistant_id=assistant.id
-    )
+        run = openai.beta.threads.runs.create_and_poll(
+            thread_id=thread.id, assistant_id=assistant.id
+        )
 
-    messages = list(openai.beta.threads.messages.list(thread_id=thread.id, run_id=run.id))
-    message_content = messages[0].content[0].text
+        messages = list(openai.beta.threads.messages.list(thread_id=thread.id, run_id=run.id))
+        print("Messages:", messages)
 
-    return jsonify({"message": message_content.value})
+        if not messages or 'content' not in messages[0] or not messages[0]['content']:
+            return jsonify({"error": "Yanıt alınamadı veya yanıt beklenen formatta değil."}), 400
 
-if not os.path.exists('uploads'):
-    os.makedirs('uploads')
+        # Sadece value alanını döndürüyoruz
+        message_content = messages[0]['content'][0]['text']['value']
+        return jsonify({"message": message_content})
+    
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
-import os
-app.run(debug=True, port=5000)
+if __name__ == "__main__":
+    app.run(debug=True)
