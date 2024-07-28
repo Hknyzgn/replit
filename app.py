@@ -7,8 +7,8 @@ import os
 
 app = Flask(__name__, template_folder='templates', static_folder='static')
 
-# OpenAI API anahtarınızı güvenli bir şekilde saklayın
-openai.api_key = os.getenv('OPENAI_API_KEY', 'sk-proj-n0GDEEM7fZd9skPf0lAuT3BlbkFJmF5oKFnsau76SAwo9M4f')
+# GitHub Secrets'dan OpenAI API anahtarını al
+openai.api_key = os.getenv('OPENAI_API_KEY')
 
 # Vektör mağazası ve asistan ID'leri
 vector_store_id = "vs_1N5yiB3FktibNA46NuqXrAVg"
@@ -61,8 +61,7 @@ def analyze_image(img):
         try:
             data = response.json()
             if 'choices' in data and len(data['choices']) > 0:
-                # Sadece value alanını alıyoruz
-                value = data['choices'][0]['message']['content']
+                value = data['choices'][0].get('message', {}).get('content', 'İçerik bulunamadı')
                 return value
             else:
                 return "Yanıt beklenen formatta değil veya içerik bulunamadı."
@@ -94,7 +93,7 @@ def get_gtip_code(description):
         try:
             data = response.json()
             if 'choices' in data and len(data['choices']) > 0:
-                reply = data['choices'][0]['message']['content']
+                reply = data['choices'][0].get('message', {}).get('content', 'İçerik bulunamadı')
                 gtip_code = reply.split(":")[-1].strip()
                 return gtip_code
             else:
