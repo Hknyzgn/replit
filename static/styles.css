@@ -1,0 +1,71 @@
+/* TailwindCSS kullanıldığı için ek özel stiller */
+body {
+    font-family: 'Arial', sans-serif;
+    background-color: #f4f4f4;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+}
+
+.container {
+    width: 90%;
+    max-width: 1200px;
+    margin: auto;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 0 15px rgba(0, 0, 0, 0.1);
+    background: #fff;
+}
+
+.chat-container, .upload-container {
+    margin-bottom: 20px;
+}
+
+.message-container {
+    height: 400px;
+    overflow-y: auto;
+    border: 1px solid #e5e7eb;
+    padding: 10px;
+    border-radius: 8px;
+    margin-bottom: 10px;
+    background-color: #f9fafb;
+}
+
+.message {
+    padding: 10px;
+    border-radius: 5px;
+    margin-bottom: 10px;
+}
+
+.message.user {
+    background-color: #007bff;
+    color: white;
+    text-align: right;
+}
+
+.message.bot {
+    background-color: #e0e0e0;
+    color: black;
+    text-align: left;
+}
+
+.drop-area {
+    border: 2px dashed #ccc;
+    border-radius: 8px;
+    padding: 20px;
+    text-align: center;
+    cursor: pointer;
+}
+
+.drop-area p {
+    margin: 0;
+    font-size: 16px;
+    color: #666;
+}
+
+.highlight {
+    border-color: #007bff;
+}
