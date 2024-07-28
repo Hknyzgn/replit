@@ -21,10 +21,10 @@ def home():
 @app.route('/upload', methods=['POST'])
 def upload_image():
     if 'file' not in request.files:
-        return jsonify({"error": "Dosya bulunamadı"})
+        return jsonify({"error": "Dosya bulunamadı"}), 400
     file = request.files['file']
     if file.filename == '':
-        return jsonify({"error": "Dosya seçilmedi"})
+        return jsonify({"error": "Dosya seçilmedi"}), 400
     if file:
         # Dosyayı bellekte işleyin
         img = Image.open(file.stream)
@@ -68,7 +68,7 @@ def analyze_image(img):
     response = requests.post("https://api.openai.com/v1/chat/completions", headers=headers, json=payload)
 
     if response.status_code == 200:
-        description = response.json()['choices'][0]['message']['content']
+        description = response.json().get('choices', [{}])[0].get('message', {}).get('content', 'No content found')
         return description
     else:
         return f"Hata: {response.status_code}, {response.text}"
@@ -94,7 +94,7 @@ def get_gtip_code(description):
 
     if response.status_code == 200:
         # Sadece GTIP kodunu döndür
-        reply = response.json()['choices'][0]['message']['content']
+        reply = response.json().get('choices', [{}])[0].get('message', {}).get('content', 'No content found')
         gtip_code = reply.split(":")[-1].strip()
         return gtip_code
     else:
@@ -106,30 +106,37 @@ def chat():
     if not user_input:
         return jsonify({"error": "Girdi sağlanmadı"}), 400
 
-    # Vektör Mağazası ile Asistanı Güncelle
-    assistant = openai.beta.assistants.update(
-        assistant_id=assistant_id,
-        tool_resources={"file_search": {"vector_store_ids": [vector_store_id]}},
-    )
+    try:
+        # Vektör Mağazası ile Asistanı Güncelle
+        assistant = openai.beta.assistants.update(
+            assistant_id=assistant_id,
+            tool_resources={"file_search": {"vector_store_ids": [vector_store_id]}},
+        )
 
-    # Bir İletişim Dizisi Oluştur
-    thread = openai.beta.threads.create()
-    print(f"Your thread id is - {thread.id}\n\n")
+        # Bir İletişim Dizisi Oluştur
+        thread = openai.beta.threads.create()
+        print(f"Your thread id is - {thread.id}\n\n")
 
-    message = openai.beta.threads.messages.create(
-        thread_id=thread.id,
-        role="user",
-        content=user_input,
-    )
+        message = openai.beta.threads.messages.create(
+            thread_id=thread.id,
+            role="user",
+            content=user_input,
+        )
 
-    run = openai.beta.threads.runs.create_and_poll(
-        thread_id=thread.id, assistant_id=assistant.id
-    )
+        run = openai.beta.threads.runs.create_and_poll(
+            thread_id=thread.id, assistant_id=assistant.id
+        )
 
-    messages = list(openai.beta.threads.messages.list(thread_id=thread.id, run_id=run.id))
-    message_content = messages[0].content[0].text
+        messages = list(openai.beta.threads.messages.list(thread_id=thread.id, run_id=run.id))
 
-    return jsonify({"message": message_content.value})
+        if not messages or 'content' not in messages[0] or not messages[0]['content']:
+            return jsonify({"error": "Yanıt alınamadı veya yanıt beklenen formatta değil."}), 400
+
+        message_content = messages[0]['content'][0]['text']
+        return jsonify({"message": message_content})
+    
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 if __name__ == "__main__":
     app.run(debug=True)
