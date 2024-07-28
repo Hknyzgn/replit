@@ -8,7 +8,7 @@ from PIL import Image
 app = Flask(__name__, template_folder='templates', static_folder='static')
 
 # OpenAI API anahtarı
-openai.api_key = 'sk-proj-XR9jd6pCT3ypYjLLc702T3BlbkFJ0Az3SZwscDu7uImRPCwz'
+openai.api_key = 'sk-proj-UGy5NBtA3JuJF7Zs0oQtT3BlbkFJqiMnCuDOaGML6UPOAKX6'
 
 # Vektör mağazası ve asistan ID'leri
 vector_store_id = "vs_1N5yiB3FktibNA46NuqXrAVg"
