@@ -8,7 +8,7 @@ import os
 app = Flask(__name__, template_folder='templates', static_folder='static')
 
 # OpenAI API anahtarınızı güvenli bir şekilde saklayın
-openai.api_key = os.getenv('OPENAI_API_KEY', 'sk-proj-xBJddqxbM0Dk0JTK9V68T3BlbkFJo02jpvi1AeUeAfwZmX9A')
+openai.api_key = os.getenv('OPENAI_API_KEY', 'sk-proj-n0GDEEM7fZd9skPf0lAuT3BlbkFJmF5oKFnsau76SAwo9M4f')
 
 # Vektör mağazası ve asistan ID'leri
 vector_store_id = "vs_1N5yiB3FktibNA46NuqXrAVg"
