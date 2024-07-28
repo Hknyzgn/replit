@@ -8,7 +8,6 @@ from io import BytesIO
 
 app = Flask(__name__, template_folder='templates', static_folder='static')
 
-
 # OpenAI API anahtarı
 openai.api_key = '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'
 
@@ -135,6 +134,3 @@ def chat():
 
 if not os.path.exists('uploads'):
     os.makedirs('uploads')
-
-import os
-app.run(debug=True, port=5000)
