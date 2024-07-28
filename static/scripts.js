@@ -5,13 +5,13 @@ document.addEventListener("DOMContentLoaded", function() {
     let messageContainer = document.getElementById("messages");
     let fileElem = document.getElementById("fileElem");
 
-    // Herhangi bir yere bırakıldığında dosya eklenmesini sağlamak
+    // Drag & Drop Olayları
     document.addEventListener("dragover", function(e) {
         e.preventDefault();
         dropArea.classList.add("highlight");
     });
 
-    document.addEventListener("dragleave", function(e) {
+    document.addEventListener("dragleave", function() {
         dropArea.classList.remove("highlight");
     });
 
@@ -103,7 +103,6 @@ document.addEventListener("DOMContentLoaded", function() {
                     index++;
                     setTimeout(typeWriter, 20); // Yazma hızını artırmak için süreyi azaltıyoruz
                 } else {
-                    // HTML içeriği doğru bir şekilde ekleyelim
                     botMessage.children[1].innerHTML = result;
                 }
             }
@@ -163,9 +162,8 @@ document.addEventListener("DOMContentLoaded", function() {
                 if (index < text.length) {
                     botMessage.children[1].textContent += text.charAt(index);
                     index++;
-                    setTimeout(typeWriter, 20); // Yazma hızını artırmak için süreyi azaltıyoruz
+                    setTimeout(typeWriter, 20);
                 } else {
-                    // HTML içeriği doğru bir şekilde ekleyelim
                     botMessage.children[1].innerHTML = data.message;
                 }
             }
